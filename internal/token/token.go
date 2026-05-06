@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"time"
 
 	"github.com/TimKuno/stream-bot/internal/config"
 )
@@ -25,18 +26,11 @@ var token Token
 var tokenFilePath string = "token.json"
 
 // Runs the token logic.
-func ManageToken() error {
-	err := loadToken()
-	if err != nil {
-		return errors.New("Failed to get token.")
-	} else {
-		refreshToken()
-	}
-	return nil
+func ManageToken() {
+	periodicTokenRefresh()
 }
 
 func refreshToken() {
-	// TODO: Add timer to trigger this function when the refresh token expires
 	data := url.Values{}
 	data.Set("grant_type", "refresh_token")
 	data.Set("refresh_token", token.RefreshToken)
@@ -54,6 +48,7 @@ func refreshToken() {
 	log.Println("Token: New Token generated.")
 }
 
+// Saves the given oauth2 token.
 func SaveToken(oauth2token Token) {
 	file, err := os.Create(tokenFilePath)
 	if err != nil {
@@ -62,16 +57,25 @@ func SaveToken(oauth2token Token) {
 	defer file.Close()
 	json.NewEncoder(file).Encode(oauth2token)
 	token = oauth2token
+	periodicTokenRefresh()
 }
 
-func loadToken() error {
+func periodicTokenRefresh() {
+	time.AfterFunc(time.Duration(token.Expiration)*time.Second, refreshToken)
+}
+
+// Loads the token from file. Returns error in case of failure.
+func LoadToken() error {
 	file, err := os.Open(tokenFilePath)
 	if err != nil {
-		log.Println("Token: Could not load token from file.")
-		return errors.New("File not found")
+		log.Println("Token: Could not open file.")
+		return errors.New("File not found.")
 	}
 	defer file.Close()
-	json.NewDecoder(file).Decode(&token)
+	decodeErr := json.NewDecoder(file).Decode(&token)
+	if decodeErr != nil {
+		return errors.New("Token: Could not decode token from file.")
+	}
 	return nil
 }
 

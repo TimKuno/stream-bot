@@ -12,9 +12,10 @@ import (
 // Runs the bot logic.
 func RunBot() {
 	config.LoadConfig()
-	err := token.ManageToken()
+	err := token.LoadToken()
 	if err != nil {
 		auth.HandleAuth()
 	}
+	go token.ManageToken()
 	log.Println("Bot: Start Successful.")
 }

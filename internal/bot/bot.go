@@ -14,8 +14,9 @@ func RunBot() {
 	config.LoadConfig()
 	err := token.LoadToken()
 	if err != nil {
-		auth.HandleAuth()
+		go auth.HandleAuth()
+	} else {
+		go token.ManageToken()
 	}
-	go token.ManageToken()
 	log.Println("Bot: Start Successful.")
 }

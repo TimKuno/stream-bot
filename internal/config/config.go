@@ -18,7 +18,7 @@ type Config struct {
 
 // Cfg holds the loaded config
 var Cfg Config
-var cfgFilePath string = "config.json"
+var cfgFilePath string = "./configs/config.json"
 
 // Loads the config from the file system.
 // Exits the program in case of error i.e. config file is missing.

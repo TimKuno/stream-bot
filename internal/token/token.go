@@ -23,7 +23,7 @@ type Token struct {
 }
 
 var token Token
-var tokenFilePath string = "token.json"
+var tokenFilePath string = "./configs/token.json"
 
 // Runs the token logic.
 func ManageToken() {

@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/TimKuno/stream-bot/internal/auth"
+	"github.com/TimKuno/stream-bot/internal/chat/connection"
 	"github.com/TimKuno/stream-bot/internal/config"
 	"github.com/TimKuno/stream-bot/internal/token"
 )
@@ -19,4 +20,6 @@ func RunBot() {
 		go token.ManageToken()
 	}
 	log.Println("Bot: Start Successful.")
+	connection.HandleChatConnection()
+	log.Println("Bot: Shutdown.")
 }

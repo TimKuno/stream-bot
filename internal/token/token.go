@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/TimKuno/stream-bot/internal/config"
@@ -27,7 +28,7 @@ var tokenFilePath string = "./configs/token.json"
 
 // Runs the token logic.
 func ManageToken() {
-	periodicTokenRefresh()
+	refreshToken()
 }
 
 func refreshToken() {
@@ -81,5 +82,5 @@ func LoadToken() error {
 
 // Returns the access token i.e. 'Bearer xyz123'
 func GetAccessToken() string {
-	return token.TokenType + " " + token.AccessToken
+	return strings.ToUpper(token.TokenType[:1]) + token.TokenType[1:] + " " + token.AccessToken
 }

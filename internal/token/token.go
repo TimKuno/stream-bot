@@ -47,6 +47,7 @@ func refreshToken() {
 	json.NewDecoder(resp.Body).Decode(&token)
 	SaveToken(token)
 	log.Println("Token: New Token generated.")
+	periodicTokenRefresh()
 }
 
 // Saves the given oauth2 token.
@@ -58,7 +59,6 @@ func SaveToken(oauth2token Token) {
 	defer file.Close()
 	json.NewEncoder(file).Encode(oauth2token)
 	token = oauth2token
-	periodicTokenRefresh()
 }
 
 func periodicTokenRefresh() {

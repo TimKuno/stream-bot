@@ -3,6 +3,7 @@ package bot
 
 import (
 	"log"
+	"time"
 
 	"github.com/TimKuno/stream-bot/internal/auth"
 	"github.com/TimKuno/stream-bot/internal/chat/connection"
@@ -15,10 +16,11 @@ func RunBot() {
 	config.LoadConfig()
 	err := token.LoadToken()
 	if err != nil {
-		go auth.HandleAuth()
-	} else {
-		go token.ManageToken()
+		auth.HandleAuth()
 	}
+	go token.ManageToken()
+	time.Sleep(1 * time.Second) // Artificial delay to prevent main thread being faster than initial goroutine execution
+
 	log.Println("Bot: Start Successful.")
 	connection.HandleChatConnection()
 	log.Println("Bot: Shutdown.")

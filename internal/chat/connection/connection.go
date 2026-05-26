@@ -7,13 +7,19 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/TimKuno/stream-bot/internal/chat/command"
 	"github.com/TimKuno/stream-bot/internal/config"
 	"github.com/TimKuno/stream-bot/internal/token"
 	"github.com/gorilla/websocket"
 )
 
+var StreamChannelID string
+var BotUserID string
+
 // Handles the chat connection.
 func HandleChatConnection() {
+	StreamChannelID = getStreamChannelID()
+	BotUserID = getBotUserID()
 	subscribeWebsocket()
 }
 
@@ -32,6 +38,7 @@ type metadata struct {
 
 type payload struct {
 	Session session `json:"session"`
+	Event   event   `json:"event"`
 }
 
 type session struct {
@@ -47,6 +54,7 @@ type session struct {
 type event struct {
 	BroadcasterUserID string `json:"broadcaster_user_id"`
 	ChatterUserID     string `json:"chatter_user_id"`
+	ChatterUserName   string `json:"chatter_user_name"`
 	MessageID         string `json:"message_id"`
 	Message           message
 }
@@ -54,6 +62,8 @@ type event struct {
 type message struct {
 	Text string `json:"text"`
 }
+
+var messageCache response
 
 func subscribeWebsocket() {
 	conn, _, err := websocket.DefaultDialer.Dial(
@@ -84,7 +94,13 @@ func subscribeWebsocket() {
 		case "notification":
 			switch result.Metadata.SubscriptionType {
 			case "channel.chat.message":
-				analyseChatMessage()
+				messageCache = result
+				go command.CheckMessage(&command.Message{
+					BroadcasterID:   StreamChannelID,
+					SenderID:        BotUserID,
+					Message:         result.Payload.Event.Message.Text,
+					ParentMessageID: result.Payload.Event.MessageID,
+				})
 			}
 		default:
 			log.Printf("Connection: Unexpected message type: %v", result.Metadata.MessageType)
@@ -92,22 +108,16 @@ func subscribeWebsocket() {
 	}
 }
 
-func analyseChatMessage() {
-	// Check if command is used
-}
-
-func sendChatMessage() {
-	// Send command answer message
-}
-
 type Condition struct {
 	BroadcasterUserID string `json:"broadcaster_user_id"`
 	UserID            string `json:"user_id"`
 }
+
 type Transport struct {
 	Method    string `json:"method"`
 	SessionID string `json:"session_id"`
 }
+
 type EventSubListenerPaylod struct {
 	MessageType string    `json:"type"`
 	Version     string    `json:"version"`

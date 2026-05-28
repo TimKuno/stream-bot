@@ -2,14 +2,18 @@
 package auth
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/TimKuno/stream-bot/internal/config"
 	"github.com/TimKuno/stream-bot/internal/token"
 )
+
+var server *http.Server
 
 // Runs the auth logic.
 func HandleAuth() {
@@ -17,11 +21,19 @@ func HandleAuth() {
 }
 
 func getOauth2Token() {
-	http.HandleFunc("/", handleLogin)
-	http.HandleFunc("/callback", handleCallback)
+	mux := http.NewServeMux()
+	server = &http.Server{
+		Addr:    ":8080",
+		Handler: mux,
+	}
+	mux.HandleFunc("/", handleLogin)
+	mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
+		go handleCallback(w, r)
+	})
 
 	log.Println("Auth: Please connect on http://localhost:8080 to generate a new Oauth2 token.")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+	err := server.ListenAndServe()
+	if err != nil && err != http.ErrServerClosed {
 		log.Fatalf("Auth: Server failed to start: %v", err)
 	}
 }
@@ -33,7 +45,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 	params.Add("client_id", config.Cfg.ClientID)
 	params.Add("redirect_uri", config.Cfg.RedirectURI)
 	params.Add("response_type", "code")
-	params.Add("scope", "user:read:chat")
+	params.Add("scope", "user:read:chat user:write:chat")
 	http.Redirect(w, r, authURL+"?"+params.Encode(), http.StatusFound)
 }
 
@@ -66,4 +78,12 @@ func handleCallback(w http.ResponseWriter, r *http.Request) {
 	log.Println("Auth: New Token generated.")
 
 	token.SaveToken(oauth2token)
+
+	// Graceful shutdown server after new oAuth token is received
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		log.Printf("Auth: Graceful shutdown failed: %v", err)
+		server.Close()
+	}
 }

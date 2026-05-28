@@ -62,6 +62,40 @@ func sendReplyMessage(data *Message) {
 	log.Println(result)
 }
 
+type userData struct {
+	Users []user `json:"data"`
+}
+
+type user struct {
+	ID              string `json:"id"`
+	Login           string `json:"login"`
+	DisplayName     string `json:"display_name"`
+	Type            string `json:"type"`
+	BroadcasterType string `json:"broadcaster_type"`
+}
+
+// Returns the ID of the given username.
+func GetUserID(username string) string {
+	req, _ := http.NewRequest(
+		"GET",
+		"https://api.twitch.tv/helix/users?login="+username,
+		nil,
+	)
+
+	req.Header.Set("Client-Id", config.Cfg.ClientID)
+	req.Header.Set("Authorization", token.GetAccessToken())
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Println("Connection: Unable to get stream user ID")
+	}
+	defer resp.Body.Close()
+
+	var result userData
+	json.NewDecoder(resp.Body).Decode(&result)
+	return result.Users[0].ID
+}
+
 // Loads the text commands from the file system.
 // In case the file can't be parsed or deserialized we start without the text command.
 // Then only the moderation commands can be used.

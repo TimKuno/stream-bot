@@ -29,7 +29,7 @@ type Message struct {
 func CheckMessage(message *Message) {
 	for _, command := range commandsList {
 		if strings.EqualFold(message.Message, command) {
-			log.Println("Command: Found command: %v" + command)
+			log.Printf("Command: Found command: %v", command)
 			message.Message = textCommands[command]
 			sendReplyMessage(message)
 		}

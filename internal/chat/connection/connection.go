@@ -7,13 +7,19 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/TimKuno/stream-bot/internal/chat/command"
 	"github.com/TimKuno/stream-bot/internal/config"
 	"github.com/TimKuno/stream-bot/internal/token"
 	"github.com/gorilla/websocket"
 )
 
+var streamChannelID string
+var botUserID string
+
 // Handles the chat connection.
 func HandleChatConnection() {
+	streamChannelID = command.GetUserID(config.Cfg.StreamUserName)
+	botUserID = command.GetUserID(config.Cfg.BotUserName)
 	subscribeWebsocket()
 }
 
@@ -32,6 +38,7 @@ type metadata struct {
 
 type payload struct {
 	Session session `json:"session"`
+	Event   event   `json:"event"`
 }
 
 type session struct {
@@ -47,6 +54,7 @@ type session struct {
 type event struct {
 	BroadcasterUserID string `json:"broadcaster_user_id"`
 	ChatterUserID     string `json:"chatter_user_id"`
+	ChatterUserName   string `json:"chatter_user_name"`
 	MessageID         string `json:"message_id"`
 	Message           message
 }
@@ -54,6 +62,8 @@ type event struct {
 type message struct {
 	Text string `json:"text"`
 }
+
+var messageCache response
 
 func subscribeWebsocket() {
 	conn, _, err := websocket.DefaultDialer.Dial(
@@ -84,7 +94,13 @@ func subscribeWebsocket() {
 		case "notification":
 			switch result.Metadata.SubscriptionType {
 			case "channel.chat.message":
-				analyseChatMessage()
+				messageCache = result
+				go command.CheckMessage(&command.Message{
+					BroadcasterID:   streamChannelID,
+					SenderID:        botUserID,
+					Message:         result.Payload.Event.Message.Text,
+					ParentMessageID: result.Payload.Event.MessageID,
+				})
 			}
 		default:
 			log.Printf("Connection: Unexpected message type: %v", result.Metadata.MessageType)
@@ -92,38 +108,32 @@ func subscribeWebsocket() {
 	}
 }
 
-func analyseChatMessage() {
-	// Check if command is used
-}
-
-func sendChatMessage() {
-	// Send command answer message
-}
-
-type Condition struct {
+type condition struct {
 	BroadcasterUserID string `json:"broadcaster_user_id"`
 	UserID            string `json:"user_id"`
 }
-type Transport struct {
+
+type transport struct {
 	Method    string `json:"method"`
 	SessionID string `json:"session_id"`
 }
-type EventSubListenerPaylod struct {
+
+type eventSubListenerPaylod struct {
 	MessageType string    `json:"type"`
 	Version     string    `json:"version"`
-	Condition   Condition `json:"condition"`
-	Transport   Transport `json:"transport"`
+	Condition   condition `json:"condition"`
+	Transport   transport `json:"transport"`
 }
 
 func registerEventSubListeners(sessionID string) {
-	data := EventSubListenerPaylod{
+	data := eventSubListenerPaylod{
 		MessageType: "channel.chat.message",
 		Version:     "1",
-		Condition: Condition{
-			BroadcasterUserID: getStreamChannelID(),
-			UserID:            getBotUserID(),
+		Condition: condition{
+			BroadcasterUserID: streamChannelID,
+			UserID:            botUserID,
 		},
-		Transport: Transport{
+		Transport: transport{
 			Method:    "websocket",
 			SessionID: sessionID,
 		},
@@ -148,58 +158,4 @@ func registerEventSubListeners(sessionID string) {
 		log.Printf("Connection: Could not subscribe eventsub: %v", err)
 	}
 	defer resp.Body.Close()
-}
-
-type userData struct {
-	Users []user `json:"data"`
-}
-
-type user struct {
-	ID              string `json:"id"`
-	Login           string `json:"login"`
-	DisplayName     string `json:"display_name"`
-	Type            string `json:"type"`
-	BroadcasterType string `json:"broadcaster_type"`
-}
-
-func getStreamChannelID() string {
-	req, _ := http.NewRequest(
-		"GET",
-		"https://api.twitch.tv/helix/users?login="+config.Cfg.StreamUserName,
-		nil,
-	)
-
-	req.Header.Set("Client-Id", config.Cfg.ClientID)
-	req.Header.Set("Authorization", token.GetAccessToken())
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		log.Println("Connection: Unable to get stream user ID")
-	}
-	defer resp.Body.Close()
-
-	var result userData
-	json.NewDecoder(resp.Body).Decode(&result)
-	return result.Users[0].ID
-}
-
-func getBotUserID() string {
-	req, _ := http.NewRequest(
-		"GET",
-		"https://api.twitch.tv/helix/users?login="+config.Cfg.BotUserName,
-		nil,
-	)
-
-	req.Header.Set("Client-Id", config.Cfg.ClientID)
-	req.Header.Set("Authorization", token.GetAccessToken())
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		log.Println("Connection: Unable to get bot user ID")
-	}
-	defer resp.Body.Close()
-
-	var result userData
-	json.NewDecoder(resp.Body).Decode(&result)
-	return result.Users[0].ID
 }
